@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+backend/media/
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+.DS_Store
+e2e/test-results/
+e2e/playwright-report/

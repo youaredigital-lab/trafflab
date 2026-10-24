@@ -1,0 +1,57 @@
+# Локальный запуск всего приложения: docker compose up --build → http://localhost:8080
+name: trafficlab
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trafficlab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trafficlab}
+      POSTGRES_DB: ${POSTGRES_DB:-trafficlab}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      target: prod
+    image: trafficlab-backend:local
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-trafficlab}:${POSTGRES_PASSWORD:-trafficlab}@db:5432/${POSTGRES_DB:-trafficlab}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      MEDIA_MAX_MB: ${MEDIA_MAX_MB:-2048}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Kyiv}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-trafficlab123}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+    volumes:
+      - media:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    image: trafficlab-frontend:local
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: backend:8000
+      CLIENT_MAX_BODY_SIZE: ${CLIENT_MAX_BODY_SIZE:-2100m}
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  media:
